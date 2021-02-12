@@ -1,9 +1,10 @@
-emqx_lorawan_gateway
-========
+# emqx lorawan gateway
+EMQX lorawan gateway plugin.
 
-An EMQ X plugin
+## Quick start
+Add plugin to your emqx.
 
-##### emqx_lorawan_gateway.conf
+## Config
 
 ```properties
 emqx_lorawan_gateway.hook.client.connected.1     = {"action": "on_client_connected"}
@@ -17,14 +18,12 @@ emqx_lorawan_gateway.hook.message.delivered.1    = {"action": "on_message_delive
 emqx_lorawan_gateway.hook.message.acked.1        = {"action": "on_message_acked"}
 ```
 
-License
--------
+## License
+MIT
+## Author
+- wwhai
 
-Apache License Version 2.0
-
-Author
-------
-
-Contributors
-------------
-
+## community
+- QQ Group: 475512169
+- HomePage: http://openlab.ezlinker.cn
+- Email: cnwwhai@gmail.com
