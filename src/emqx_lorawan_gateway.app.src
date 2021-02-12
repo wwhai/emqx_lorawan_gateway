@@ -1,0 +1,14 @@
+{application, emqx_lorawan_gateway,
+ [{description, "An EMQ X plugin"},
+  {vsn, "git"},
+  {modules, []},
+  {registered, []},
+  {mod, {emqx_lorawan_gateway_app, []}},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {licenses, ["Apache 2.0"]},
+  {links, []}
+ ]}.
