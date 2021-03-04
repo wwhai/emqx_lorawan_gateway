@@ -44,3 +44,29 @@
 	  {lists:concat([Name1, ".", Name2]), Val}
 	end, Hooks)
 end}.
+
+%%
+%% Gateway config
+%%
+
+{mapping, "emqx_lorawan_gateway.uart.$number", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, string},
+  {default, "115200, 8, 1, none, none"}
+]}.
+
+%% [{["emqx_lorawan_gateway","uart", "stop_bits","1"], 1}]
+
+{translation, "emqx_lorawan_gateway.uart_configs", fun(Conf) ->
+    L2I = fun(N) ->
+        erlang:list_to_integer(N)
+    end,
+    [{"uart"++ N, case string:tokens(UartConfig, " ,") of
+                    [BaudRate, DataBits, StopBits, DataParty, FlowControl, Device] ->
+                      [L2I(BaudRate), L2I(DataBits),
+                       L2I(StopBits), DataParty,
+                       FlowControl, Device];
+                    _ ->
+                      [115200, 8, 1, none, none, "dev/tty"]
+                  end}
+    || {[_,"uart",N], UartConfig} <- Conf]
+end}.

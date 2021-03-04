@@ -6,18 +6,17 @@ Add plugin to your emqx.
 
 ## Config
 
-```properties
-emqx_lorawan_gateway.hook.client.connected.1     = {"action": "on_client_connected"}
-emqx_lorawan_gateway.hook.client.disconnected.1  = {"action": "on_client_disconnected"}
-emqx_lorawan_gateway.hook.client.subscribe.1     = {"action": "on_client_subscribe"}
-emqx_lorawan_gateway.hook.client.unsubscribe.1   = {"action": "on_client_unsubscribe"}
-emqx_lorawan_gateway.hook.session.subscribed.1   = {"action": "on_session_subscribed"}
-emqx_lorawan_gateway.hook.session.unsubscribed.1 = {"action": "on_session_unsubscribed"}
-emqx_lorawan_gateway.hook.message.publish.1      = {"action": "on_message_publish"}
-emqx_lorawan_gateway.hook.message.delivered.1    = {"action": "on_message_delivered"}
-emqx_lorawan_gateway.hook.message.acked.1        = {"action": "on_message_acked"}
-```
+- Serial baud rate, default 115200
+- Data bits, default 8
+- Data stop bits, default 1
+- Data party, default none
+- Serial flowv control, default none
 
+Config format: BaudRate, DataBits, StopBits, DataParty, FlowControl, Device
+
+```ini
+emqx_lorawan_gateway.uart.1 = 115200, 8, 1, none, none, /dev/cu.Bluetooth-Incoming-Port
+```
 ## License
 MIT
 ## Author
@@ -25,5 +24,6 @@ MIT
 
 ## community
 - QQ Group: 475512169
-- HomePage: http://openlab.ezlinker.cn
+- HomePage1: http://openlab.ezlinker.cn
+- HomePage2: http://wwhai.gitee.io
 - Email: cnwwhai@gmail.com

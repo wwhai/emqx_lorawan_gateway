@@ -1,5 +1,5 @@
 {application, emqx_lorawan_gateway,
- [{description, "An EMQ X plugin"},
+ [{description, "emqx lorawan gateway"},
   {vsn, "git"},
   {modules, []},
   {registered, []},
