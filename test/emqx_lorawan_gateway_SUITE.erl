@@ -24,5 +24,21 @@ end_per_group(_Group, _Cfg) ->
 %%--------------------------------------------------------------------
 %% Cases
 %%--------------------------------------------------------------------
-t_test(_) ->
-    ok.
+t_test_send(_) ->
+    {ok, C} = emqtt:start_link([{host, "localhost"},
+                                {clientid, <<"simpleClient">>}]),
+    {ok, _} = emqtt:connect(C),
+    timer:sleep(10),
+    emqtt:subscribe(C, <<"TopicA">>, qos2),
+    timer:sleep(1000),
+    emqtt:publish(C, <<"TopicA">>, <<"Payload">>, qos2),
+    timer:sleep(1000),
+    receive
+        {publish, #{payload := Payload}} ->
+            ?assertEqual(<<"Payload">>, Payload)
+    after
+        1000 ->
+            ct:fail({receive_timeout, <<"Payload">>}),
+            ok
+    end,
+    emqtt:disconnect(C).

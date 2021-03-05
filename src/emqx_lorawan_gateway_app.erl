@@ -27,5 +27,5 @@ stop(_State) ->
     ?APP:unload(),
     ok.
 
-start_uart({Name, [_, _, _, _, _, DeviceName] = Config}) ->
-    _Pid = proc_lib:spawn_link(list_to_atom(Name ++ DeviceName), init, [Config]).
+start_uart({Name, [_, _, _, _, _, Device]} = Config) ->
+    gen_server:start_link({global, list_to_atom(Name ++ Device)}, ?APP, Config, [{timeout, 3000}]).

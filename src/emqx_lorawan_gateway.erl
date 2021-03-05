@@ -7,7 +7,7 @@
 %%
 -behaviour(gen_server).
 
--export([start_link/0]).
+-define(LOG(Level, Format, Args), emqx_logger:Level("emqx_lorawan_gateway: " ++ Format, Args)).
 
 -export([code_change/3
         , handle_call/3
@@ -20,27 +20,22 @@
         , load/0
         , unload/0
         ]).
--export([on_message_publish/1]).
 
--define(LOG(Level, Format, Args), emqx_logger:Level("emqx_lorawan_gateway: " ++ Format, Args)).
+-export([on_message_publish/1]).
 
 -record(state, {baud_rate,
                 data_bits,
                 stop_bits,
                 data_party,
                 flow_control,
-                device}).
+                device,
+                fd}).
+%%--------------------------------------------------------------------
+%% Plugin function
+%%--------------------------------------------------------------------
 
 register_metrics() ->
     emqx_metrics:new('emqx_lorawan_gateway.message_publish').
-
-%%--------------------------------------------------------------------
-%% Message publish
-%%--------------------------------------------------------------------
-on_message_publish(Message = #message{topic = <<"$SYS/", _/binary>>}) ->
-    {ok, Message};
-on_message_publish(Message = #message{topic = Topic, flags = #{retain := Retain}}) ->
-    {ok, Message}.
 
 load() ->
     emqx:hook('client.message_publish', fun ?MODULE:on_message_publish/1, []).
@@ -49,13 +44,20 @@ unload() ->
     emqx:unhook('client.message_publish', fun ?MODULE:on_message_publish/1).
 
 %%--------------------------------------------------------------------
+%% Message publish
+%%--------------------------------------------------------------------
+
+on_message_publish(Message = #message{topic = <<"$SYS/", _/binary>>}) ->
+    {ok, Message};
+
+on_message_publish(Message) ->
+    {ok, Message}.
+
+%%--------------------------------------------------------------------
 %% gen_server
 %%--------------------------------------------------------------------
 
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
-
-init([[BaudRate, DataBits, StopBits, DataParty, FlowControl, Device]]) ->
+init({ _, [BaudRate, DataBits, StopBits, DataParty, FlowControl, Device]}) ->
     case serctl:open(Device) of
         {error, Reason} ->
             io:format("Serial port: ~p open failed~n", [Device]),
@@ -69,7 +71,7 @@ init([[BaudRate, DataBits, StopBits, DataParty, FlowControl, Device]]) ->
                     stop_bits = StopBits,
                     data_party = DataParty,
                     flow_control = FlowControl,
-                    device = Device}}
+                    device = Device, fd = FD}}
     end.
 
 
@@ -83,6 +85,7 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 terminate(_Reason, _State) ->
+    io:format("|>=> :~p~n", [_Reason]),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
