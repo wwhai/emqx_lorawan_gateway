@@ -1,12 +1,13 @@
 {application, emqx_lorawan_gateway,
  [{description, "emqx lorawan gateway"},
-  {vsn, "git"},
+  {vsn, "0.1"},
   {modules, []},
-  {registered, []},
+  {registered, [emqx_lorawan_gateway]},
   {mod, {emqx_lorawan_gateway_app, []}},
   {applications,
    [kernel,
-    stdlib
+    stdlib,
+    srly
    ]},
   {env,[]},
   {licenses, ["Apache 2.0"]},
