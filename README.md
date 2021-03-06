@@ -27,3 +27,11 @@ MIT
 - HomePage1: http://openlab.ezlinker.cn
 - HomePage2: http://wwhai.gitee.io
 - Email: cnwwhai@gmail.com
+
+## TODO
+- [x] 插件开源
+- [ ] 通过MQTT协议进行串口数据的收发
+- [ ] 串口数据通过EMQ转发到后端
+- [ ] 适配树莓派4B
+- [ ] 适配Windows10
+- [ ] 适配更多模块或者开发板
