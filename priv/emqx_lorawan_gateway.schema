@@ -1,72 +1,68 @@
 %%-*- mode: erlang -*-
-
-{mapping, "emqx_lorawan_gateway.hook.client.connected.$name", "emqx_lorawan_gateway.hooks", [
-  {datatype, string}
-]}.
-
-{mapping, "emqx_lorawan_gateway.hook.client.disconnected.$name", "emqx_lorawan_gateway.hooks", [
-  {datatype, string}
-]}.
-
-{mapping, "emqx_lorawan_gateway.hook.client.subscribe.$name", "emqx_lorawan_gateway.hooks", [
-  {datatype, string}
-]}.
-
-{mapping, "emqx_lorawan_gateway.hook.client.unsubscribe.$name", "emqx_lorawan_gateway.hooks", [
-  {datatype, string}
-]}.
-
-{mapping, "emqx_lorawan_gateway.hook.session.subscribed.$name", "emqx_lorawan_gateway.hooks", [
-  {datatype, string}
-]}.
-
-{mapping, "emqx_lorawan_gateway.hook.session.unsubscribed.$name", "emqx_lorawan_gateway.hooks", [
-  {datatype, string}
-]}.
-
-{mapping, "emqx_lorawan_gateway.hook.message.publish.$name", "emqx_lorawan_gateway.hooks", [
-  {datatype, string}
-]}.
-
-{mapping, "emqx_lorawan_gateway.hook.message.acked.$name", "emqx_lorawan_gateway.hooks", [
-  {datatype, string}
-]}.
-
-{mapping, "emqx_lorawan_gateway.hook.message.delivered.$name", "emqx_lorawan_gateway.hooks", [
-  {datatype, string}
-]}.
-
-
-{translation, "emqx_lorawan_gateway.hooks", fun(Conf) ->
-  Hooks = cuttlefish_variable:filter_by_prefix("emqx_lorawan_gateway.hook", Conf),
-  lists:map(
-    fun({[_, _, Name1, Name2, _], Val}) ->
-	  {lists:concat([Name1, ".", Name2]), Val}
-	end, Hooks)
-end}.
-
 %%
 %% Gateway config
 %%
 
-{mapping, "emqx_lorawan_gateway.uart.$number", "emqx_lorawan_gateway.uart_configs", [
-  {datatype, string},
-  {default, "115200, 8, 1, none, none"}
+{mapping, "emqx_lorawan_gateway.uart.$name.baud_rate", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, integer},
+  {default, 115200}
 ]}.
 
-%% [{["emqx_lorawan_gateway","uart", "stop_bits","1"], 1}]
+{mapping, "emqx_lorawan_gateway.uart.$name.data_bits", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, integer},
+  {default, 8}
+]}.
+
+{mapping, "emqx_lorawan_gateway.uart.$name.stop_bits", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, integer},
+  {default, 1}
+]}.
+
+{mapping, "emqx_lorawan_gateway.uart.$name.data_party", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, atom},
+  {default, none}
+]}.
+
+{mapping, "emqx_lorawan_gateway.uart.$name.flow_control", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, atom},
+  {default, none}
+]}.
+
+{mapping, "emqx_lorawan_gateway.uart.$name.device", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, string}
+]}.
+
+{mapping, "emqx_lorawan_gateway.uart.$name.send_buffer", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, integer},
+  {default, 64}
+]}.
+
+{mapping, "emqx_lorawan_gateway.uart.$name.send_timeout", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, integer},
+  {default, 1000}
+]}.
+
+{mapping, "emqx_lorawan_gateway.uart.$name.receive_buffer", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, integer},
+  {default, 64}
+]}.
+
+{mapping, "emqx_lorawan_gateway.uart.$name.receive_timeout", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, integer},
+  {default, 1000}
+]}.
+
+{mapping, "emqx_lorawan_gateway.uart.$name.ping_packet", "emqx_lorawan_gateway.uart_configs", [
+  {datatype, string},
+  {default, ""}
+]}.
+
 
 {translation, "emqx_lorawan_gateway.uart_configs", fun(Conf) ->
-    L2I = fun(N) ->
-        erlang:list_to_integer(N)
-    end,
-    [{"uart"++ N, case string:tokens(UartConfig, " ,") of
-                    [BaudRate, DataBits, StopBits, DataParty, FlowControl, Device] ->
-                      [L2I(BaudRate), L2I(DataBits),
-                       L2I(StopBits), DataParty,
-                       FlowControl, Device];
-                    _ ->
-                      [115200, 8, 1, none, none, "dev/tty"]
-                  end}
-    || {[_,"uart",N], UartConfig} <- Conf]
+    Options = lists:map(fun({[_, Name0, Name1, Name2], Val}) ->
+	    {lists:concat([Name0, Name1]), {lists:concat([Name2]), Val}}
+	  end, cuttlefish_variable:filter_by_prefix("emqx_lorawan_gateway.uart", Conf)),
+    lists:map(fun(K) ->
+        {K, proplists:get_all_values(K, Options)}
+    end, proplists:get_keys(Options))
 end}.

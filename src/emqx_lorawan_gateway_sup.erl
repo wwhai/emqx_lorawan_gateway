@@ -14,10 +14,14 @@
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-
 init([]) ->
     UartsConfigs = application:get_env(emqx_lorawan_gateway, uart_configs, []),
-    _ = lists:map(fun({Name, [_, _, _, _, _, Device]} = Config) ->
-        {ok, _} = gen_server:start_link({global, list_to_atom(Name ++ Device)}, emqx_lorawan_gateway_cli, [Config], [])
+    ChildrenSpecs = lists:map(fun({Name, Config}) ->
+        #{id => list_to_atom(Name),
+          start => {emqx_lorawan_gateway_uart_connector, start_link, [{list_to_atom(Name), Config}]},
+          restart => permanent,
+          shutdown => brutal_kill,
+          type => worker,
+          modules => [emqx_lorawan_gateway_uart_connector]}
     end, UartsConfigs),
-    {ok, {{one_for_one, 10, 100}, []}}.
+    {ok, {{one_for_one, 10, 100}, ChildrenSpecs}}.
