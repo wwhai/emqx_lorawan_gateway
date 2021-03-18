@@ -72,35 +72,22 @@ emqx_lorawan_gateway.uart.1.ping_packet = AT
 ## Protocol specific
 Protocol packet use ***1 byte*** fixed header and data body is fixed buffer size where can configured in EMQX or your UART device.
 
-| Code (1 Byte) | Body                     | Name                  |
-| ------------- | ------------------------ | --------------------- |
-| 0x00          | []                       | PING                  |
-| 0x01          | []                       | PING SUCCESS          |
-| 0x02          | [2 Byte Length \| Data ] | DATA SEND             |
-| 0x03          | []                       | DATA RECEIVED SUCCESS |
+| Code (1 Byte) | Body                      | Name                  |
+| ------------- | ------------------------- | --------------------- |
+| 0x00          | []                        | PING                  |
+| 0x01          | []                        | PING SUCCESS          |
+| 0x02          | [ 2 Byte Length \| Data ] | DATA SEND             |
+| 0x03          | []                        | DATA RECEIVED SUCCESS |
+| 0x04          | []                        | UNKNOWN_PACKET        |
+| 0x05          | []                        | ERROR                 |
 
 ### Master to Slaver
 The following flowchart is for master to slaver communication:
-
-```sequence
-    Master->Slaver: PING:0x00
-    Slaver-->Master: PING_SUCCESS:0x01
-    Note left of Slaver: Communication established
-    Master->Slaver: DATA_SEND:0x02
-    Slaver-->Master: DATA_RECEIVED_SUCCESS:0x03
-```
+![Picture](./assets/1.png "Master -> Slaver")
 
 ### Slaver to Master
 The following flowchart is for slaver to master communication:
-
-```sequence
-    Slaver->Master: PING:0x00
-    Master-->Slaver: PING_SUCCESS:0x01
-    Note right of Slaver: Communication established
-    Slaver->Master: DATA_SEND:0x02
-    Master-->Slaver: DATA_RECEIVED_SUCCESS:0x03
-
-```
+![Picture](./assets/2.png "Slaver -> Master")
 
 ## Community
 - QQ Group: 475512169

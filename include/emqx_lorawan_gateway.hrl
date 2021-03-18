@@ -12,6 +12,11 @@
 
 -define(DATA_RECEIVED_SUCCESS, 16#03).
 
+-define(UNKNOWN_PACKET, 16#04).
+
+-define(ERROR, 16#05).
+
+
 -define(UART_TABLE, uart_table).
 
 -record(uart, {device::string(),

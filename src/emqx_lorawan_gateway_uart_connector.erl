@@ -2,7 +2,7 @@
 
 -include("emqx_lorawan_gateway.hrl").
 -include_lib("emqx/include/emqx.hrl").
-
+-include_lib("emqx/include/logger.hrl").
 %%
 %% Author:wwhai
 %%
@@ -25,6 +25,7 @@ init([{Name, Config}]) ->
     case serctl:open(Device) of
         {ok, FD} ->
             io:format("Serial port: ~p open successfully~n", [Device]),
+            % flush_buffer(FD),
             Termios = lists:foldl(
                 fun(Fun, Acc) -> Fun(Acc) end,
                 serctl:mode(raw),
@@ -35,19 +36,19 @@ init([{Name, Config}]) ->
                 ]
             ),
             ok = serctl:tcsetattr(FD, tcsanow, Termios),
-                    spawn_link(fun() ->
-                        loop_receive_data(FD)
-                    end),
+            _Pid = proc_lib:spawn_link(fun() ->
+                loop_receive_data(FD)
+            end),
             Uart = #uart{device = Device,
-                            baud_rate = get_config("baud_rate", Config),
-                            data_bits = get_config("data_bits", Config),
-                            stop_bits = get_config("stop_bits", Config),
-                            data_party = get_config("data_party", Config),
-                            flow_control = get_config("flow_control", Config),
-                            receive_buffer = get_config("receive_buffer", Config),
-                            send_buffer = get_config("send_buffer", Config),
-                            fd = FD,
-                            status = work},
+                         baud_rate = get_config("baud_rate", Config),
+                         data_bits = get_config("data_bits", Config),
+                         stop_bits = get_config("stop_bits", Config),
+                         data_party = get_config("data_party", Config),
+                         flow_control = get_config("flow_control", Config),
+                         receive_buffer = get_config("receive_buffer", Config),
+                         send_buffer = get_config("send_buffer", Config),
+                         fd = FD,
+                         status = work},
             ets:insert(?UART_TABLE, Uart),
             timer:send_interval(1000, self(), ping_slaver),
             {ok, Uart};
@@ -56,7 +57,6 @@ init([{Name, Config}]) ->
     end.
 
 loop_receive_data(FD) ->
-
     Type = read_data(FD, 1),
     case Type of
         %% Slaver --ping--> Master
@@ -69,8 +69,10 @@ loop_receive_data(FD) ->
             Data = read_data(FD, DataSize),
             io:format("DATA_SEND => :~p~n", [Data]);
         %% Slaver received success
-        ?DATA_RECEIVED_SUCCESS -> received_ok;
-        _ -> ok
+        ?DATA_RECEIVED_SUCCESS ->
+             received_ok;
+        _ ->
+             async_write(<<?UNKNOWN_PACKET>>, FD)
     end,
     loop_receive_data(FD).
 
@@ -84,29 +86,24 @@ handle_call({write, Data}, _From, State) ->
             {reply, stop, State}
     end;
 
-handle_call(Request, _From, State) ->
-    io:format("Call => :~p~n", [Request]),
+handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
-handle_cast(Msg, State) ->
-    io:format("Cast => :~p~n", [Msg]),
-
+handle_cast(_Msg, State) ->
     {noreply, State}.
 
-% handle_info(ping_slaver, State) ->
-%     FD = get_config(fd, State),
-%     NewState1 = case sync_write(FD, <<?PING>>, 1) of
-%         <<?PING_SUCCESS>> ->
-%              NewState = State#{status := work},
-%              ets:insert(?UART_TABLE, NewState), NewState;
-%         _ ->
-%              NewState = State#{status := stop},
-%              ets:insert(?UART_TABLE, NewState), NewState
-%     end,
-%     {noreply, NewState1};
-
-handle_info(Info, State) ->
-    io:format("Info => :~p~n", [Info]),
+handle_info(ping_slaver, State) ->
+    FD = get_config(fd, State),
+    NewState1 = case sync_write(FD, <<?PING>>, 1) of
+        <<?PING_SUCCESS>> ->
+             NewState = State#{status := work},
+             ets:insert(?UART_TABLE, NewState), NewState;
+        _ ->
+             NewState = State#{status := stop},
+             ets:insert(?UART_TABLE, NewState), NewState
+    end,
+    {noreply, NewState1};
+handle_info(_Info, State) ->
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -142,14 +139,17 @@ async_write(Data, FD) when is_binary(Data) ->
     end.
 
 flush_buffer(FD) ->
-    case read_data(FD, 1) of
-       <<>> -> ok;
-       _Data -> flush_buffer(FD)
+    case serctl:read(FD, 1) of
+       {ok, <<>>} -> ok;
+       {ok, _} -> flush_buffer(FD);
+       {error, eagain} -> ok
     end.
 
 read_data(FD, Size) ->
-    timer:sleep(?HARDWARE_DELAY_TIME),
-    case serctl:read(FD, Size) of
+    Bin = serctl:read(FD, Size),
+    case Bin of
        {ok, Data} -> Data;
-        _ -> <<>>
+       {error, eagain} ->
+            timer:sleep(?HARDWARE_DELAY_TIME),
+            read_data(FD, Size)
     end.

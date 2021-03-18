@@ -44,4 +44,4 @@ t_test_send(_) ->
     emqtt:disconnect(C).
 
 t_test_uart(_) ->
-    timer:sleep(5000).
+    timer:sleep(1000).
