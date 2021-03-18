@@ -67,10 +67,11 @@ loop_receive_data(FD) ->
         ?DATA_SEND ->
             DataSize = read_data(FD, 2),
             Data = read_data(FD, DataSize),
-            io:format("DATA_SEND => :~p~n", [Data]);
+            io:format("Data from slaver => :~p~n", [Data]);
         %% Slaver received success
         ?DATA_RECEIVED_SUCCESS ->
              received_ok;
+        <<>> -> null;
         _ ->
              async_write(<<?UNKNOWN_PACKET>>, FD)
     end,
@@ -139,17 +140,10 @@ async_write(Data, FD) when is_binary(Data) ->
     end.
 
 flush_buffer(FD) ->
-    case serctl:read(FD, 1) of
-       {ok, <<>>} -> ok;
-       {ok, _} -> flush_buffer(FD);
-       {error, eagain} -> ok
+    case read_data(FD, 1) of
+       <<>> -> ok;
+       _ -> flush_buffer(FD)
     end.
 
 read_data(FD, Size) ->
-    Bin = serctl:read(FD, Size),
-    case Bin of
-       {ok, Data} -> Data;
-       {error, eagain} ->
-            timer:sleep(?HARDWARE_DELAY_TIME),
-            read_data(FD, Size)
-    end.
+    {ok, Bin} = serctl:read(FD, Size), Bin.
