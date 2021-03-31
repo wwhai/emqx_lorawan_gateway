@@ -62,24 +62,20 @@ emqx_lorawan_gateway.uart.1.receive_buffer = 128
 ## Data recive timeout(ms)
 ##
 emqx_lorawan_gateway.uart.1.receive_timeout = 1000
-##
-## Data ping packet buffer(byte)
-##
-emqx_lorawan_gateway.uart.1.ping_packet = AT
 
 ```
 
 ## Protocol specific
-Protocol packet use ***1 byte*** fixed header and data body is fixed buffer size where can configured in EMQX or your UART device.
+Protocol packet use ***4 byte*** fixed header and data body is fixed buffer size where can configured in EMQX or your UART device.
 
-| Code (1 Byte) | Body                      | Name                  |
-| ------------- | ------------------------- | --------------------- |
-| 0x00          | []                        | PING                  |
-| 0x01          | []                        | PING SUCCESS          |
-| 0x02          | [ 2 Byte Length \| Data ] | DATA SEND             |
-| 0x03          | []                        | DATA RECEIVED SUCCESS |
-| 0x04          | []                        | UNKNOWN_PACKET        |
-| 0x05          | []                        | ERROR                 |
+| Code (1 Byte) | Body                                                | Name                  |
+| ------------- | --------------------------------------------------- | --------------------- |
+| 0x00          | [MSGID:2, Type:1]                                   | PING                  |
+| 0x01          | [MSGID:2, Type:1]                                   | PING SUCCESS          |
+| 0x02          | [MSGID:2, Type:1 \| Length:2 \| Data:0-65535 Byte ] | DATA SEND             |
+| 0x03          | [MSGID:2, Type:1]                                   | DATA RECEIVED SUCCESS |
+| 0x04          | [MSGID:2, Type:1]                                   | UNKNOWN PACKET        |
+| 0x05          | [MSGID:2, Type:1]                                   | ERROR                 |
 
 ### Master to Slaver
 The following flowchart is for master to slaver communication:
@@ -94,14 +90,6 @@ The following flowchart is for slaver to master communication:
 - HomePage1: http://openlab.ezlinker.cn
 - HomePage2: http://wwhai.gitee.io
 - Email: cnwwhai@gmail.com
-
-## TODO list
-
-- [ ] 通过MQTT协议进行串口数据的收发
-- [ ] 串口数据通过EMQ转发到后端
-- [ ] 适配树莓派4B
-- [ ] 适配Windows10
-- [ ] 适配更多模块或者开发板
 
 ## License
 MIT

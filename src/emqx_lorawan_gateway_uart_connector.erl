@@ -3,6 +3,7 @@
 -include("emqx_lorawan_gateway.hrl").
 -include_lib("emqx/include/emqx.hrl").
 -include_lib("emqx/include/logger.hrl").
+
 %%
 %% Author:wwhai
 %%
@@ -22,6 +23,7 @@ start_link({Name, Config}) ->
 
 init([{Name, Config}]) ->
     Device = get_config("device", Config),
+    gen_msg_id(),
     case serctl:open(Device) of
         {ok, FD} ->
             io:format("Serial port: ~p open successfully~n", [Device]),
@@ -37,7 +39,7 @@ init([{Name, Config}]) ->
             ),
             ok = serctl:tcsetattr(FD, tcsanow, Termios),
             _Pid = proc_lib:spawn_link(fun() ->
-                loop_receive_data(FD)
+                receive_data(FD)
             end),
             Uart = #uart{device = Device,
                          baud_rate = get_config("baud_rate", Config),
@@ -49,61 +51,67 @@ init([{Name, Config}]) ->
                          send_buffer = get_config("send_buffer", Config),
                          fd = FD,
                          status = work},
-            ets:insert(?UART_TABLE, Uart),
             timer:send_interval(1000, self(), ping_slaver),
             {ok, Uart};
         _ ->
             error({error, Name ++ ":" ++ Device ++ " can't open!"})
     end.
 
-loop_receive_data(FD) ->
-    Type = read_data(FD, 1),
-    case Type of
-        %% Slaver --ping--> Master
-        ?PING -> async_write(<<?PING_SUCCESS>>, FD);
-        %% Master ---ping---> Slaver success
-        ?PING_SUCCESS -> will_handle_ping_ok;
-        %% Data from slaver
-        ?DATA_SEND ->
-            DataSize = read_data(FD, 2),
-            Data = read_data(FD, DataSize),
-            io:format("Data from slaver => :~p~n", [Data]);
-        %% Slaver received success
-        ?DATA_RECEIVED_SUCCESS ->
-             received_ok;
-        <<>> -> null;
-        _ ->
-             async_write(<<?UNKNOWN_PACKET>>, FD)
-    end,
-    loop_receive_data(FD).
+receive_data(FD) ->
+    case read_data(FD, ?MSG_ID_LENGTH) of
+        <<>> -> ok;
+        <<MsgId:16, _/binary>> = Bin ->
+            io:format("MsgId => :~p~n", [Bin]),
+            <<Type:8, _/binary>> = read_data(FD, ?MSG_TYPE_LENGTH),
+            io:format("Type => :~p~n", [Type]),
+            case Type of
+                %% Slaver --ping--> Master
+                ?PING -> handle_ping(MsgId);
+                %% Master ---ping---> Slaver success
+                ?PING_SUCCESS -> handle_ping_slaver_success(MsgId);%% update status to work.
+                %% Data from slaver
+                ?DATA_SEND -> handle_data_send(MsgId);%% return success to slaver
+                %% Slaver received success
+                ?DATA_RECEIVED_SUCCESS -> handle_receive_success(MsgId); %% remove msgid
+                %% unknown packet
+                _ -> handle_unknown_packet(MsgId)
+            end
+    end.
 
-handle_call({write, Data}, _From, State) ->
-    Status = get_config(status, State),
-    case Status of
-        work ->
-            ok = sync_write(get_config(fd, State), get_config(send_buffer, State), Data),
-            {reply, ok, State};
-        stop ->
-            {reply, stop, State}
-    end;
+%% ping from slaver
+handle_call({ping, MsgId}, _From, #uart{fd = FD} = State) ->
+    ct:print("|>=> :~p~n", [<<MsgId:24, ?PING_SUCCESS:8>>]),
+    sync_write(<<MsgId:24, ?PING_SUCCESS:8>>, FD),
+    {reply, ok, State};
+%% ping slaver success
+handle_call({ping_slaver_success, MsgId}, _From, #uart{fd = FD} = State) ->
+    %% remove ping packet id
+    {reply, ok, State#uart{status = work}};
+%% data from slaver
+handle_call({data_send, MsgId}, _From, #uart{fd = FD} = State) ->
+    DataSize = read_data(FD, ?MSG_LENGTH),
+    Data = read_data(FD, DataSize),
+    io:format("Data from slaver => :~p~n", [Data]),
+    sync_write(<<MsgId:24, ?DATA_RECEIVED_SUCCESS>>, FD),
+    {reply, ok, State};
+%% received data
+handle_call({receive_success, MsgId}, _From, #uart{fd = FD} = State) ->
+    %% remove send data packet id
+    {reply, ok, State};
+%% unknown packet
+handle_call({unknown_packet, MsgId}, _From, #uart{fd = FD} = State) ->
+    sync_write(<<MsgId:24, ?UNKNOWN_PACKET>>, FD),
+    {reply, ok, State};
 
-handle_call(_Request, _From, State) ->
+handle_call(_Request, _From, #uart{fd = FD} = State) ->
     {reply, ignored, State}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info(ping_slaver, State) ->
-    FD = get_config(fd, State),
-    NewState1 = case sync_write(FD, <<?PING>>, 1) of
-        <<?PING_SUCCESS>> ->
-             NewState = State#{status := work},
-             ets:insert(?UART_TABLE, NewState), NewState;
-        _ ->
-             NewState = State#{status := stop},
-             ets:insert(?UART_TABLE, NewState), NewState
-    end,
-    {noreply, NewState1};
+handle_info(ping_slaver, #uart{fd = FD} = State) ->
+    {noreply, State};
+
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -114,7 +122,7 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %%-----------------------------------------------------------------------------
-%% Private function
+%% API function
 %%-----------------------------------------------------------------------------
 get_config(Key, Config) ->
     proplists:get_value(Key, Config).
@@ -122,19 +130,8 @@ get_config(Key, Config) ->
 get_config(Key, Config, Default) ->
     proplists:get_value(Key, Config, Default).
 
-%%-----------------------------------------------------------------------------
-%% API function
-%%-----------------------------------------------------------------------------
-
-sync_write(Data, FD, BufferSize) when is_binary(Data) ->
+sync_write(Data, FD) when is_binary(Data) ->
     case serctl:write(FD, Data) of
-        ok -> read_data(FD, BufferSize);
-        _ -> error
-    end.
-
-async_write(Data, FD) when is_binary(Data) ->
-    R = serctl:write(FD, Data),
-    case R of
         ok -> ok;
         _ -> error
     end.
@@ -146,4 +143,28 @@ flush_buffer(FD) ->
     end.
 
 read_data(FD, Size) ->
-    {ok, Bin} = serctl:read(FD, Size), Bin.
+    case serctl:read(FD, Size) of
+        {error, _} -> <<>>;
+        {ok, Bin} -> io:format("read_data => :~p~n", [{size, Size, bin, Bin}]), Bin
+    end.
+
+gen_msg_id() ->
+    case get(atom_counter) of
+        undefined -> 0;
+        N -> put(atom_counter, N+1), N+1
+    end.
+
+handle_ping(MsgId) ->
+    gen_server:call(self(), {ping, MsgId}).
+
+handle_ping_slaver_success(MsgId) ->
+    gen_server:call(self(), {ping_slaver_success, MsgId}).
+
+handle_data_send(MsgId) ->
+    gen_server:call(self(), {data_send, MsgId}).
+
+handle_receive_success(MsgId) ->
+    gen_server:call(self(), {receive_success, MsgId}).
+
+handle_unknown_packet(MsgId) ->
+    gen_server:call(self(), {unknown_packet, MsgId}).

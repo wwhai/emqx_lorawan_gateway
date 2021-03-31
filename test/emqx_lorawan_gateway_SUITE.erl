@@ -1,6 +1,7 @@
 %% @author: 
 %% @description: 
 -module(emqx_lorawan_gateway_SUITE).
+-include("emqx_lorawan_gateway.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -compile([export_all, nowarn_export_all]).
 %%--------------------------------------------------------------------
@@ -24,24 +25,7 @@ end_per_group(_Group, _Cfg) ->
 %%--------------------------------------------------------------------
 %% Cases
 %%--------------------------------------------------------------------
-t_test_send(_) ->
-    {ok, C} = emqtt:start_link([{host, "localhost"},
-                                {clientid, <<"simpleClient">>}]),
-    {ok, _} = emqtt:connect(C),
-    timer:sleep(10),
-    emqtt:subscribe(C, <<"TopicA">>, qos2),
-    timer:sleep(1000),
-    emqtt:publish(C, <<"TopicA">>, <<"Payload">>, qos2),
-    timer:sleep(1000),
-    receive
-        {publish, #{payload := Payload}} ->
-            ?assertEqual(<<"Payload">>, Payload)
-    after
-        1000 ->
-            ct:fail({receive_timeout, <<"Payload">>}),
-            ok
-    end,
-    emqtt:disconnect(C).
 
-t_test_uart(_) ->
-    timer:sleep(1000).
+t_test_ping(_) ->
+    {ok, FD} = serctl:open("/dev/ttys021"),
+    serctl:write(FD, <<0, 1, 0>>).

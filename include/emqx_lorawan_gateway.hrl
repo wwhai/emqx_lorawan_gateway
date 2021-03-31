@@ -2,7 +2,10 @@
 -define(APP, emqx_lorawan_gateway).
 
 %% Some low performance hardware may have UART delay
--define(HARDWARE_DELAY_TIME, 10).
+%% Default is 100ms
+-define(HARDWARE_DELAY_TIME, 100).
+%% Heart beat timeout is 5000ms
+-define(HEART_BEAT_TIMEOUT, 5000).
 
 -define(PING, 16#00).
 
@@ -28,4 +31,10 @@
                receive_buffer::integer(),
                send_buffer::integer(),
                fd::port(),
-               status::atom()}).
+               status::work | stop |busy}).
+
+-define(MSG_ID_LENGTH, 2).
+
+-define(MSG_TYPE_LENGTH, 1).
+
+-define(MSG_LENGTH, 2).
